@@ -1,19 +1,24 @@
+# app.py
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
+from flask_caching import Cache
 import os
-from api import api_blueprint
-from flask import Blueprint, request, jsonify, current_app
+
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
+# Initialize cache
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
+cache.init_app(app)
+
 # Get the API Key
 app.config['GOOGLE_MAPS_API_KEY'] = os.getenv('GOOGLE_MAPS_API_KEY')
 
-# Register the blueprint
+# Register the blueprint (import after cache is initialized)
 from api import api_blueprint
 app.register_blueprint(api_blueprint)
 
