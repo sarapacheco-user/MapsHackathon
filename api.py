@@ -1,6 +1,7 @@
 
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
+from flask_caching import Cache
 from helpers import (
     geocode_address,
     parse_address_components,
@@ -16,43 +17,38 @@ from helpers import (
     sample_route_coordinates,
     get_nearby_places
 )
-
 api_blueprint = Blueprint('api', __name__)
 
+# This will be initialized in app.py
+cache = Cache()
 # Geocode API
-@api_blueprint.route('/geocode', methods=['GET'])
-def api_geocode():
-    """
-    Geocode an address to coordinates.
-    
-    Query Parameters:
-        address (str): Human-readable address (e.g., "123 Main St, New York").
-    
-    Returns:
-        JSON response with formatted address, coordinates, and place details.
-    """
+@api_blueprint.route('/geocode')
+def geocode():
     address = request.args.get('address')
-
     if not address:
-        return jsonify({
-            "error": "Address parameter is required",
-            "status": "error"
-        }), 400
+        return jsonify({'error': 'Address parameter is required'}), 400
     
     try:
-        result = geocode_address(address)
-        return jsonify(result), 200
-    except ValueError as e:
+        # Use Google Maps Geocoding API directly
+        api_key = current_app.config['GOOGLE_MAPS_API_KEY']
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
+        response = request.get(url)
+        data = response.json()
+        
+        if data['status'] != 'OK':
+            return jsonify({'error': 'Location not found', 'details': data}), 400
+        
+        location = data['results'][0]['geometry']['location']
         return jsonify({
-            "error": str(e),
-            "status": "error"
-        }), 400
+            'status': 'OK',
+            'location': {
+                'lat': location['lat'],
+                'lng': location['lng']
+            },
+            'formatted_address': data['results'][0]['formatted_address']
+        })
     except Exception as e:
-        current_app.logger.error(f"Geocode error: {str(e)}")
-        return jsonify({
-            "error": "An unexpected error occurred",
-            "status": "error"
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 # Reverse Geocode API
 @api_blueprint.route('/reverse-geocode', methods=['GET'])
