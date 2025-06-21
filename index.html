@@ -1,198 +1,369 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Route Safety Navigator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Safety App</title>
+    <!-- <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDm_ac4-bL262Pq7oYupCEggSVONRvT5PM&libraries=places"></script> -->
+
+   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC_dtv1k_0leuqeAOcMItWCzNzS62cq63k&callback=console.debug&libraries=maps,marker&v=beta"></script>
+
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      font-family: Arial, sans-serif;
-    }
-    header {
-      background-color: #2c3e50;
-      color: white;
-      padding: 1rem;
-      text-align: center;
-    }
-    .container {
-      display: flex;
-      flex: 1;
-    }
-    .sidebar {
-      width: 300px;
-      background-color: #f5f5f5;
-      padding: 1rem;
-      overflow-y: auto;
-      border-right: 1px solid #ddd;
-    }
-    .map-container {
-      flex: 1;
-    }
-    #map {
-      height: 100%;
-      width: 100%;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
-      box-sizing: border-box;
-    }
-    button {
-      background-color: #3498db;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
-    .route-option {
-      border: 1px solid #ddd;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .route-option:hover {
-      background-color: #eee;
-    }
-    .selected-route {
-      border: 2px solid #3498db;
-      background-color: #e6f2fa;
-    }
-  </style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+        }
+        .sidebar {
+            width: 300px;
+            background-color: #f5f5f5;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .map-container {
+            flex: 1;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        input, button {
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .route-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 4px;
+        }
+        .safety-score {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .route-option {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .route-option:hover {
+            background-color: #eee;
+        }
+        .selected-route {
+            border: 2px solid #3498db;
+            background-color: #e6f2fa;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Route Safety Navigator</h1>
-  </header>
-  <div class="container">
-    <div class="sidebar">
-      <label>Origin:</label>
-      <input id="origin" placeholder="Enter starting point">
-      <label>Destination:</label>
-      <input id="destination" placeholder="Enter destination">
-      <label>Travel Mode:</label>
-      <select id="travel-mode">
-        <option value="DRIVING">Driving</option>
-        <option value="WALKING">Walking</option>
-        <option value="BICYCLING">Bicycling</option>
-      </select>
-      <button onclick="findRoutes()">Find Safest Route</button>
-
-      <div id="route-options"></div>
-    </div>
-    <div class="map-container">
-      <div id="map"></div>
-    </div>
-  </div>
-
-  <script>
-    let map;
-    let polyline = null;
-
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: -23.5505, lng: -46.6333 }, // São Paulo default
-        zoom: 12,
-      });
-    }
-
-    async function geocodeAddress(address) {
-      const response = await fetch(`http://localhost:5000/geocode?address=${encodeURIComponent(address)}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      return { lat: data.latitude, lng: data.longitude };
-    }
-
-    async function findRoutes() {
-      const originInput = document.getElementById('origin').value;
-      const destinationInput = document.getElementById('destination').value;
-      const travelMode = document.getElementById('travel-mode').value;
-
-      if (!originInput || !destinationInput) {
-        alert('Please enter both origin and destination');
-        return;
-      }
-
-      try {
-        const origin = await geocodeAddress(originInput);
-        const destination = await geocodeAddress(destinationInput);
-
-        const response = await fetch('http://localhost:5000/safest-route', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            origin: origin,
-            destination: destination,
-            travel_mode: travelMode
-          })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          alert(data.error || "Error fetching safest route");
-          return;
-        }
-
-        drawPolyline(data.route.overview_polyline);
-        showRouteInfo(data);
-
-      } catch (error) {
-        alert('Error: ' + error.message);
-        console.error(error);
-      }
-    }
-
-    function drawPolyline(encoded) {
-      if (polyline) {
-        polyline.setMap(null);
-      }
-
-      const path = google.maps.geometry.encoding.decodePath(encoded);
-
-      polyline = new google.maps.Polyline({
-        path: path,
-        geodesic: true,
-        strokeColor: '#3498db',
-        strokeOpacity: 0.8,
-        strokeWeight: 6,
-      });
-
-      polyline.setMap(map);
-
-      const bounds = new google.maps.LatLngBounds();
-      path.forEach(point => bounds.extend(point));
-      map.fitBounds(bounds);
-    }
-
-    function showRouteInfo(data) {
-      const route = data.route;
-      const safety = data.safety_analysis;
-
-      const routeOptionsDiv = document.getElementById('route-options');
-      routeOptionsDiv.innerHTML = `
-        <div class="route-option selected-route">
-          <strong>${route.summary || "Safest Route"}</strong><br>
-          Distance: ${route.distance.text}<br>
-          Duration: ${route.duration.text}<br>
-          <strong>Safety Score:</strong> ${safety.score}<br>
-          <strong>Primary Risks:</strong> ${safety.primary_risks.length > 0 ? safety.primary_risks.join(', ') : 'None'}
+    <header>
+        <h1>Route Safety Navigator</h1>
+    </header>
+    <div class="container">
+        <div class="sidebar">
+            <div class="form-group">
+                <label for="origin">Origin:</label>
+                <input type="text" id="origin" placeholder="Enter starting location">
+            </div>
+            <div class="form-group">
+                <label for="destination">Destination:</label>
+                <input type="text" id="destination" placeholder="Enter destination">
+            </div>
+            <div class="form-group">
+                <label for="travel-mode">Travel Mode:</label>
+                <select id="travel-mode">
+                    <option value="DRIVING">Driving</option>
+                    <option value="WALKING">Walking</option>
+                    <option value="BICYCLING">Bicycling</option>
+                    <option value="TRANSIT">Transit</option>
+                </select>
+            </div>
+            <button id="find-routes">Find Safest Route</button>
+            
+            <div id="route-options" class="route-options"></div>
+            
+            <div id="safety-info" class="route-info" style="display: none;">
+                <h3>Safety Information</h3>
+                <div class="safety-score" id="safety-score"></div>
+                <div id="safety-factors"></div>
+            </div>
+            
+            <div id="nearby-places" class="route-info" style="display: none;">
+                <h3>Nearby Safety Points</h3>
+                <div id="places-list"></div>
+            </div>
         </div>
-      `;
-    }
-  </script>
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
 
-  
-  <script 
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC_dtv1k_0leuqeAOcMItWCzNzS62cq63k&libraries=geometry&callback=initMap"
-    async defer>
-  </script>
+    <script>
+        // Initialize the map
+        let map;
+        let directionsService;
+        let directionsRenderer;
+        let originAutocomplete;
+        let destinationAutocomplete;
+        let currentRoute = null;
+        let markers = [];
+        
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 0, lng: 0},
+                zoom: 12
+            });
+            
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true
+            });
+            
+            // Initialize autocomplete for origin and destination
+            originAutocomplete = new google.maps.places.Autocomplete(
+                document.getElementById('origin'),
+                { types: ['geocode'] }
+            );
+            
+            destinationAutocomplete = new google.maps.places.Autocomplete(
+                document.getElementById('destination'),
+                { types: ['geocode'] }
+            );
+            
+            // Add event listener for find routes button
+            document.getElementById('find-routes').addEventListener('click', findRoutes);
+        }
+        
+        function findRoutes() {
+            const origin = document.getElementById('origin').value;
+            const destination = document.getElementById('destination').value;
+            const travelMode = document.getElementById('travel-mode').value;
+            
+            if (!origin || !destination) {
+                alert('Please enter both origin and destination');
+                return;
+            }
+            
+            // First geocode the addresses to get coordinates
+            Promise.all([
+                geocodeAddress(origin),
+                geocodeAddress(destination)
+            ]).then(([originCoords, destinationCoords]) => {
+                // Call our backend to get routes
+                fetch('/api/routes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        origin: originCoords,
+                        destination: destinationCoords,
+                        travel_mode: travelMode
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    displayRouteOptions(data.routes, data.safest_route_id);
+                    
+                    // Automatically select the safest route
+                    selectRoute(data.safest_route_id);
+                    
+                    // Get nearby places for the midpoint
+                    const midLat = (originCoords.lat + destinationCoords.lat) / 2;
+                    const midLng = (originCoords.lng + destinationCoords.lng) / 2;
+                    getNearbyPlaces(midLat, midLng);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to find routes');
+                });
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+                alert('Could not find the locations you entered');
+            });
+        }
+        
+        function geocodeAddress(address) {
+            return new Promise((resolve, reject) => {
+                // Use our backend geocode endpoint
+                fetch(`/api/geocode?address=${encodeURIComponent(address)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            reject(data.error);
+                            return;
+                        }
+                        resolve({
+                            lat: data.location.lat,
+                            lng: data.location.lng
+                        });
+                    })
+                    .catch(error => reject(error));
+            });
+        }
+        
+        function displayRouteOptions(routes, safestRouteId) {
+            const routeOptionsDiv = document.getElementById('route-options');
+            routeOptionsDiv.innerHTML = '';
+            
+            routes.forEach(route => {
+                const routeDiv = document.createElement('div');
+                routeDiv.className = `route-option ${route.id === safestRouteId ? 'selected-route' : ''}`;
+                routeDiv.innerHTML = `
+                    <h4>${route.name}</h4>
+                    <p>Distance: ${route.distance}</p>
+                    <p>Duration: ${route.duration}</p>
+                `;
+                routeDiv.addEventListener('click', () => selectRoute(route.id));
+                routeOptionsDiv.appendChild(routeDiv);
+            });
+        }
+        
+        function selectRoute(routeId) {
+            // Highlight the selected route in the list
+            const routeOptions = document.querySelectorAll('.route-option');
+            routeOptions.forEach(option => {
+                option.classList.remove('selected-route');
+                if (option.textContent.includes(routeId)) {
+                    option.classList.add('selected-route');
+                }
+            });
+            
+            // Get detailed safety info for this route
+            fetch('/api/route-safety', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    polyline: routeId, // Using route ID as polyline for simplicity
+                    travel_mode: document.getElementById('travel-mode').value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displaySafetyInfo(data);
+            })
+            .catch(error => {
+                console.error('Error getting safety info:', error);
+            });
+            
+            // Display the route on the map (simplified)
+            // In a real app, you would use the actual route polyline
+            const origin = document.getElementById('origin').value;
+            const destination = document.getElementById('destination').value;
+            const travelMode = document.getElementById('travel-mode').value;
+            
+            directionsService.route({
+                origin: origin,
+                destination: destination,
+                travelMode: travelMode
+            }, (response, status) => {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(response);
+                    currentRoute = response;
+                } else {
+                    console.error('Directions request failed:', status);
+                }
+            });
+        }
+        
+        function displaySafetyInfo(safetyData) {
+            const safetyInfoDiv = document.getElementById('safety-info');
+            const safetyScoreDiv = document.getElementById('safety-score');
+            const safetyFactorsDiv = document.getElementById('safety-factors');
+            
+            safetyInfoDiv.style.display = 'block';
+            safetyScoreDiv.textContent = `Safety Score: ${safetyData.safety_score}`;
+            
+            let factorsHtml = '<ul>';
+            for (const [factor, value] of Object.entries(safetyData.factors)) {
+                factorsHtml += `<li><strong>${factor}:</strong> ${value}</li>`;
+            }
+            factorsHtml += '</ul>';
+            
+            safetyFactorsDiv.innerHTML = factorsHtml;
+        }
+        
+        function getNearbyPlaces(lat, lng) {
+            fetch(`/api/nearby-places?lat=${lat}&lng=${lng}&radius=500`)
+                .then(response => response.json())
+                .then(data => {
+                    displayNearbyPlaces(data.places, data.safety_relevant);
+                })
+                .catch(error => {
+                    console.error('Error getting nearby places:', error);
+                });
+        }
+        
+        function displayNearbyPlaces(places, safetyRelevant) {
+            const nearbyPlacesDiv = document.getElementById('nearby-places');
+            const placesListDiv = document.getElementById('places-list');
+            
+            nearbyPlacesDiv.style.display = 'block';
+            
+            // Clear previous markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            
+            let placesHtml = '<h4>Safety Relevant Places:</h4><ul>';
+            safetyRelevant.forEach(place => {
+                placesHtml += `<li>${place.name} (${place.types.join(', ')})</li>`;
+                
+                // Add marker to map
+                const marker = new google.maps.Marker({
+                    position: { lat: place.geometry.location.lat, lng: place.geometry.location.lng },
+                    map: map,
+                    title: place.name
+                });
+                markers.push(marker);
+            });
+            placesHtml += '</ul>';
+            
+            placesListDiv.innerHTML = placesHtml;
+        }
+        
+        // Initialize the app when the API is loaded
+        window.onload = function() {
+            initMap();
+        };
+    </script>
+    <!-- Replace with your actual Google Maps API key -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC_dtv1k_0leuqeAOcMItWCzNzS62cq63k&libraries=places&callback=initMap"></script>
 </body>
-</html>
+</html>  
